@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi Interaktif: Peleburan Es & Pendidihan Air</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .mono-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        /* Canvas glow effects */
+        .glow-ice {
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.25);
+        }
+        .glow-water {
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.25);
+        }
+        .glow-steam {
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.25);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="glass-panel sticky top-0 z-50 border-b border-slate-700/50 px-4 py-3 sm:px-8">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl shadow-lg shadow-cyan-500/20 text-white">
+                    <i class="fa-solid font-bold fa-temperature-arrow-up text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-cyan-400 via-sky-200 to-blue-400 bg-clip-text text-transparent">
+                        Simulasi Pepelehan Es & Pendidihan Air
+                    </h1>
+                    <p class="text-xs text-slate-400">Termodinamika Mikroskopis & Kurva Perubahan Wujud Zat ($H_2O$)</p>
+                </div>
+            </div>
+
+            <!-- Header Quick Info Badges -->
+            <div class="flex items-center gap-2 sm:gap-4 text-xs">
+                <div class="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                    <span class="text-slate-400">Fasa:</span>
+                    <span id="phaseBadge" class="font-semibold text-cyan-300">Padat (Es)</span>
+                </div>
+                <div class="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-fire text-amber-400"></i>
+                    <span class="text-slate-400">Kalor Tersebar:</span>
+                    <span id="heatEnergyBadge" class="font-semibold text-amber-300 mono-font">0.0 kJ</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- LEFT COLUMN: Microscopic Visualizer Canvas & Burner Controls (7 Cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-5">
+
+            <!-- Particle Container Box -->
+            <div class="glass-panel rounded-2xl p-4 sm:p-5 flex flex-col gap-4 relative overflow-hidden">
+                <!-- Container Title Bar -->
+                <div class="flex justify-between items-center text-sm border-b border-slate-700/60 pb-3">
+                    <div class="flex items-center gap-2 text-slate-200 font-semibold">
+                        <i class="fa-solid fa-atom text-cyan-400"></i>
+                        <span>Pandangan Mikroskopis Molekul $H_2O$</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="toggleBondsBtn" class="px-2.5 py-1 text-xs rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-circle-nodes text-cyan-400"></i>
+                            <span id="bondBtnText">Ikatan Hidrogen: ON</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Canvas Wrapper with Thermometer Overlay -->
+                <div class="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+
+                    <!-- Canvas element for particle dynamics -->
+                    <canvas id="particleCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+                    <!-- Overlay Thermometer HUD -->
+                    <div class="absolute left-4 top-4 bottom-12 w-10 sm:w-12 glass-panel rounded-full p-1.5 flex flex-col items-center justify-between border border-slate-700/80 shadow-2xl">
+                        <!-- Temp Text readout -->
+                        <div id="tempHUDText" class="text-[10px] sm:text-xs font-bold mono-font text-cyan-400 bg-slate-900/90 px-1 py-0.5 rounded border border-cyan-500/30">
+                            -20°C
+                        </div>
+                        <!-- Thermometer Tube -->
+                        <div class="w-3 sm:w-4 flex-1 bg-slate-800 rounded-full my-2 relative overflow-hidden border border-slate-700">
+                            <div id="thermoLiquid" class="absolute bottom-0 w-full bg-gradient-to-t from-blue-500 via-cyan-400 to-red-500 rounded-full transition-all duration-150" style="height: 10%;"></div>
+                        </div>
+                        <!-- Bulb -->
+                        <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-cyan-500 border-2 border-slate-800 flex items-center justify-center shadow-lg shadow-cyan-500/40">
+                            <i class="fa-solid fa-temperature-half text-slate-950 text-xs"></i>
+                        </div>
+                    </div>
+
+                    <!-- State Banner Overlay -->
+                    <div id="stateOverlay" class="absolute top-4 right-4 px-3 py-1.5 rounded-lg glass-panel border border-cyan-500/30 text-xs font-medium text-cyan-200 flex items-center gap-2">
+                        <i id="stateIcon" class="fa-solid fa-snowflake text-cyan-400"></i>
+                        <span id="stateText">Es Padat (-20°C)</span>
+                    </div>
+
+                    <!-- Bunsen Burner Flame Visual below beaker canvas -->
+                    <div id="flameContainer" class="absolute bottom-0 inset-x-0 h-10 flex justify-center items-end opacity-0 transition-opacity duration-300 pointer-events-none">
+                        <div class="w-32 h-8 bg-gradient-to-t from-amber-500 via-orange-400 to-transparent blur-md rounded-t-full animate-pulse"></div>
+                        <div class="w-16 h-6 bg-gradient-to-t from-blue-500 via-cyan-300 to-transparent blur-sm rounded-t-full -ml-24"></div>
+                    </div>
+                </div>
+
+                <!-- Simulation Control Panel -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <!-- Heating Burner Power Selector -->
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-medium text-slate-300 flex justify-between">
+                            <span><i class="fa-solid fa-fire-burner text-amber-400 mr-1"></i> Sumber Kalor (Pembakar Bunsen)</span>
+                            <span id="heatPowerText" class="text-amber-400 font-bold">Mati</span>
+                        </label>
+                        <div class="grid grid-cols-4 gap-1.5">
+                            <button data-heat="-2" class="heat-btn py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 transition">
+                                <i class="fa-solid fa-snowflake block mb-0.5 text-blue-400"></i> Dingin
+                            </button>
+                            <button data-heat="0" class="heat-btn active py-2 text-xs font-semibold rounded-lg bg-cyan-600 text-white border border-cyan-400 transition shadow-md shadow-cyan-600/30">
+                                <i class="fa-solid fa-power-off block mb-0.5"></i> Off
+                            </button>
+                            <button data-heat="1" class="heat-btn py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition">
+                                <i class="fa-solid fa-fire-flame-curved block mb-0.5 text-amber-400"></i> Sedang
+                            </button>
+                            <button data-heat="3" class="heat-btn py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-red-400 border border-slate-700 transition">
+                                <i class="fa-solid fa-fire block mb-0.5 text-red-500"></i> Tinggi
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Action Controls & Speed Slider -->
+                    <div class="flex flex-col justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <button id="playPauseBtn" class="flex-1 py-2 px-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20">
+                                <i class="fa-solid fa-pause"></i>
+                                <span>Jeda</span>
+                            </button>
+                            <button id="resetBtn" class="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-lg border border-slate-700 transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-rotate-left"></i>
+                                <span>Reset</span>
+                            </button>
+                        </div>
+
+                        <!-- Manual Temperature Slider -->
+                        <div class="flex flex-col gap-1">
+                            <div class="flex justify-between text-[11px] text-slate-400">
+                                <span>Suhu Langsung:</span>
+                                <span id="sliderTempDisplay" class="font-bold text-cyan-300 mono-font">-20°C</span>
+                            </div>
+                            <input id="tempSlider" type="range" min="-30" max="130" value="-20" step="1" class="w-full accent-cyan-400 bg-slate-800 rounded-lg h-2 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Physical Constants Summary Card -->
+            <div class="glass-panel rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs border border-slate-800">
+                <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block text-[10px]">Titik Lebur (Peleburan)</span>
+                    <span class="font-bold text-cyan-300 text-sm mono-font">0 °C</span>
+                    <span class="text-[10px] text-slate-500 block">Es $\rightarrow$ Air</span>
+                </div>
+                <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block text-[10px]">Titik Didih (Penguapan)</span>
+                    <span class="font-bold text-red-400 text-sm mono-font">100 °C</span>
+                    <span class="text-[10px] text-slate-500 block">Air $\rightarrow$ Uap</span>
+                </div>
+                <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block text-[10px]">Kalor Lebur ($L_f$)</span>
+                    <span class="font-bold text-amber-300 text-sm mono-font">334 J/g</span>
+                    <span class="text-[10px] text-slate-500 block">Suhu Tetap 0°C</span>
+                </div>
+                <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 block text-[10px]">Kalor Uap ($L_v$)</span>
+                    <span class="font-bold text-rose-400 text-sm mono-font">2260 J/g</span>
+                    <span class="text-[10px] text-slate-500 block">Suhu Tetap 100°C</span>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- RIGHT COLUMN: Thermodynamic Curve & Real-Time Physics Explanation (5 Cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-5">
+
+            <!-- Heating Curve Canvas Box -->
+            <div class="glass-panel rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
+                <div class="flex justify-between items-center text-sm border-b border-slate-700/60 pb-2">
+                    <div class="flex items-center gap-2 text-slate-200 font-semibold">
+                        <i class="fa-solid fa-chart-line text-amber-400"></i>
+                        <span>Grafik Kurva Pemanasan Air</span>
+                    </div>
+                    <span class="text-[11px] text-slate-400">Suhu vs Kalor Ditambahkan</span>
+                </div>
+
+                <!-- Heating Graph Canvas -->
+                <div class="relative w-full aspect-[4/3] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 p-2">
+                    <canvas id="graphCanvas" class="w-full h-full block"></canvas>
+                </div>
+
+                <!-- Legend / Phase Indicators -->
+                <div class="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-400 pt-1">
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> Es Padat</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Peleburan (0°C)</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span> Air Cair</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-400"></span> Mendidih (100°C)</span>
+                </div>
+            </div>
+
+            <!-- Dynamic Educational Physics Explanation Box -->
+            <div class="glass-panel rounded-2xl p-4 sm:p-5 flex flex-col gap-3 flex-1 border border-slate-800">
+                <div class="flex items-center gap-2 text-sm font-semibold text-cyan-300 border-b border-slate-700/60 pb-2">
+                    <i class="fa-solid fa-graduation-cap text-base"></i>
+                    <span>Analisis Fisika & Molekuler saat ini</span>
+                </div>
+
+                <!-- Dynamic Text Explanation -->
+                <div id="explanationBox" class="text-xs text-slate-300 leading-relaxed flex flex-col gap-2.5">
+                    <!-- Text inserted dynamically by JS based on current thermodynamic state -->
+                </div>
+
+                <!-- Real-time Energy Data Table -->
+                <div class="mt-auto pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-900/80 p-2 rounded-lg">
+                        <span class="text-slate-400 text-[10px] block">Energi Kinetik Rata-Rata</span>
+                        <span id="kineticEnergyVal" class="font-bold text-sky-300 mono-font">Rendah (Getaran)</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2 rounded-lg">
+                        <span class="text-slate-400 text-[10px] block">Status Ikatan Molekul</span>
+                        <span id="bondStatusVal" class="font-bold text-cyan-300 mono-font">Kristal Kaku (Penuh)</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="glass-panel border-t border-slate-800 py-3 text-center text-xs text-slate-500">
+        Simulasi Edukasi Termodinamika & Fisika Molekuler &bull; Peleburan Es (0°C) hingga Titik Didih (100°C)
+    </footer>
+
+    <script>
+        /**
+         * THERMODYNAMIC STATE & SIMULATION PARAMETERS
+         */
+        const state = {
+            temperature: -20,     // Current temperature in °C (-30 to 130)
+            heatAdded: 0,         // Cumulative heat unit added
+            heatPower: 0,         // Burner power input (-2 to 3)
+            isPlaying: true,      // Simulation playback state
+            showBonds: true,      // Hydrogen bond lines toggle
+            phase: 'solid',       // 'solid', 'melting', 'liquid', 'boiling', 'gas'
+            latentProgress: 0     // Progress in latent phase transitions (0.0 to 1.0)
+        };
+
+        // Thermodynamic constants (normalized for simulation speed)
+        const CAPACITY_ICE = 2.1;      // Specific heat capacity ice (J/g°C)
+        const LATENT_FUSION = 334;     // Latent heat of fusion (J/g)
+        const CAPACITY_WATER = 4.18;   // Specific heat capacity water (J/g°C)
+        const LATENT_VAPOR = 2260;     // Latent heat of vaporization (J/g)
+        const CAPACITY_STEAM = 2.0;    // Specific heat capacity steam (J/g°C)
+
+        // Graph coordinates mapping parameters
+        const MAX_HEAT_TOTAL = 3200;   // X-axis max heat units
+
+        /**
+         * MOLECULAR PARTICLE SIMULATION ENGINE
+         */
+        const pCanvas = document.getElementById('particleCanvas');
+        const pCtx = pCanvas.getContext('2d');
+
+        let particles = [];
+        const NUM_MOLECULES = 50;
+
+        class Molecule {
+            constructor(gridX, gridY) {
+                // Crystal lattice target position
+                this.homeX = gridX;
+                this.homeY = gridY;
+
+                // Current position
+                this.x = gridX;
+                this.y = gridY;
+
+                // Velocity
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5;
+
+                // Molecule radius
+                this.radius = 11;
+                // Molecule orientation angle for hydrogen visual
+                this.angle = Math.random() * Math.PI * 2;
+                this.angularVel = (Math.random() - 0.5) * 0.05;
+            }
+
+            update(temp, phase, bounds) {
+                // Kinetic speed factor based on absolute temperature
+                const speedMult = Math.max(0.15, Math.sqrt(Math.max(0, temp + 40)) * 0.35);
+
+                if (phase === 'solid') {
+                    // Ice lattice constraint: elastic spring towards crystal lattice point
+                    const k = 0.08;
+                    const dx = this.homeX - this.x;
+                    const dy = this.homeY - this.y;
+                    this.vx += dx * k;
+                    this.vy += dy * k;
+                    this.vx *= 0.85;
+                    this.vy *= 0.85;
+
+                    // Small thermal vibration
+                    this.vx += (Math.random() - 0.5) * speedMult * 0.4;
+                    this.vy += (Math.random() - 0.5) * speedMult * 0.4;
+
+                    this.x += this.vx;
+                    this.y += this.vy;
+                } 
+                else if (phase === 'melting') {
+                    // Transition phase: lattice breaking, partially fluid
+                    const k = 0.02 * (1 - state.latentProgress);
+                    const dx = this.homeX - this.x;
+                    const dy = this.homeY - this.y;
+                    this.vx += dx * k + (Math.random() - 0.5) * speedMult * 0.6;
+                    this.vy += dy * k + (Math.random() - 0.5) * speedMult * 0.6;
+                    this.vx *= 0.92;
+                    this.vy *= 0.92;
+
+                    // Gravity pull downward
+                    this.vy += 0.08;
+
+                    this.x += this.vx;
+                    this.y += this.vy;
+                }
+                else if (phase === 'liquid' || phase === 'boiling') {
+                    // Liquid water: fluid movement + collisions + gravity
+                    this.vx += (Math.random() - 0.5) * speedMult * 0.4;
+                    this.vy += (Math.random() - 0.5) * speedMult * 0.4;
+
+                    // Thermal buoyancy / convection when heated
+                    if (state.heatPower > 0) {
+                        this.vy -= 0.05 * state.heatPower;
+                    }
+
+                    // Gravity keeping water at bottom
+                    this.vy += 0.15;
+
+                    // Damping
+                    this.vx *= 0.96;
+                    this.vy *= 0.96;
+
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.angle += this.angularVel;
+                }
+                else if (phase === 'gas') {
+                    // Steam/Gas: free rapidly moving particles expanding upwards
+                    this.vx += (Math.random() - 0.5) * speedMult * 0.8;
+                    this.vy += (Math.random() - 0.5) * speedMult * 0.8;
+
+                    // Upward velocity drift
+                    this.vy -= 0.1;
+
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.angle += this.angularVel * 2;
+                }
+
+                // Container Boundaries Collision handling
+                const bottomBoundary = bounds.height - this.radius - 8;
+                const topBoundary = phase === 'gas' ? this.radius + 8 : bounds.height * 0.25;
+                const leftBoundary = this.radius + 10;
+                const rightBoundary = bounds.width - this.radius - 10;
+
+                if (this.x < leftBoundary) { this.x = leftBoundary; this.vx *= -0.8; }
+                if (this.x > rightBoundary) { this.x = rightBoundary; this.vx *= -0.8; }
+                if (this.y > bottomBoundary) { this.y = bottomBoundary; this.vy *= -0.6; }
+                if (this.y < topBoundary) { 
+                    this.y = topBoundary; 
+                    this.vy *= -0.8; 
+                }
+            }
+
+            draw(ctx, phase, showBonds) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                // Oxygen atom (Center red/blue sphere)
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                if (phase === 'solid') {
+                    ctx.fillStyle = '#38bdf8'; // Ice blue
+                } else if (phase === 'liquid' || phase === 'melting') {
+                    ctx.fillStyle = '#2563eb'; // Deep water blue
+                } else {
+                    ctx.fillStyle = '#ef4444'; // Hot red gas
+                }
+                ctx.fill();
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                ctx.stroke();
+
+                // Two Hydrogen atoms (V-shape H2O molecule structure)
+                const hRadius = 5;
+                const hDistance = 11;
+                const hAngle = 1.85; // ~104.5 degrees angle representation
+
+                const h1x = Math.cos(-hAngle / 2) * hDistance;
+                const h1y = Math.sin(-hAngle / 2) * hDistance;
+                const h2x = Math.cos(hAngle / 2) * hDistance;
+                const h2y = Math.sin(hAngle / 2) * hDistance;
+
+                // Hydrogen 1
+                ctx.beginPath();
+                ctx.arc(h1x, h1y, hRadius, 0, Math.PI * 2);
+                ctx.fillStyle = '#f8fafc';
+                ctx.fill();
+
+                // Hydrogen 2
+                ctx.beginPath();
+                ctx.arc(h2x, h2y, hRadius, 0, Math.PI * 2);
+                ctx.fillStyle = '#f8fafc';
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const cols = 10;
+            const rows = 5;
+            const startX = pCanvas.width / 2 - (cols * 22) / 2 + 10;
+            const startY = pCanvas.height * 0.65;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const gridX = startX + c * 22 + (r % 2 === 0 ? 0 : 11);
+                    const gridY = startY + r * 20;
+                    particles.push(new Molecule(gridX, gridY));
+                }
+            }
+        }
+
+        function drawHydrogenBonds(ctx) {
+            if (!state.showBonds || state.phase === 'gas') return;
+
+            const maxDistance = state.phase === 'solid' ? 32 : 26;
+
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 3]);
+
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p1 = particles[i];
+                    const p2 = particles[j];
+                    const dx = p1.x - p2.x;
+                    const dy = p1.y - p2.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < maxDistance) {
+                        const alpha = (1 - dist / maxDistance) * (state.phase === 'solid' ? 0.8 : 0.4);
+                        ctx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            ctx.setLineDash([]);
+        }
+
+        function drawBeaker(ctx, w, h) {
+            // Draw beaker glass container
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.beginPath();
+            // Left wall
+            ctx.moveTo(20, h * 0.2);
+            ctx.lineTo(20, h - 8);
+            // Bottom
+            ctx.lineTo(w - 20, h - 8);
+            // Right wall
+            ctx.lineTo(w - 20, h * 0.2);
+            ctx.stroke();
+
+            // Beaker measurement graduation marks
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.font = '9px Inter';
+            for (let y = h - 25; y > h * 0.25; y -= 25) {
+                ctx.beginPath();
+                ctx.moveTo(20, y);
+                ctx.lineTo(32, y);
+                ctx.stroke();
+            }
+        }
+
+        /**
+         * HEATING CURVE GRAPH CANVAS RENDERER
+         */
+        const gCanvas = document.getElementById('graphCanvas');
+        const gCtx = gCanvas.getContext('2d');
+
+        function drawHeatingGraph() {
+            const w = gCanvas.width;
+            const h = gCanvas.height;
+
+            gCtx.clearRect(0, 0, w, h);
+
+            // Padding around graph
+            const padL = 40;
+            const padR = 20;
+            const padT = 20;
+            const padB = 30;
+
+            const graphW = w - padL - padR;
+            const graphH = h - padT - padB;
+
+            // Axis mapping helpers
+            const heatToX = (q) => padL + (q / MAX_HEAT_TOTAL) * graphW;
+            const tempToY = (t) => padB + graphH - ((t + 30) / 160) * graphH;
+
+            // Draw grid lines
+            gCtx.lineWidth = 1;
+            gCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+            gCtx.fillStyle = '#64748b';
+            gCtx.font = '10px JetBrains Mono';
+
+            // Y-Axis temperature ticks (-20, 0, 50, 100, 130)
+            const yTicks = [-20, 0, 50, 100];
+            yTicks.forEach(t => {
+                const y = tempToY(t);
+                gCtx.beginPath();
+                gCtx.moveTo(padL, y);
+                gCtx.lineTo(w - padR, y);
+                gCtx.stroke();
+                gCtx.fillText(`${t}°C`, 8, y + 3);
+            });
+
+            // Highlight key temperature reference lines (0°C Titik Lebur, 100°C Titik Didih)
+            gCtx.lineWidth = 1;
+            gCtx.setLineDash([3, 3]);
+
+            // 0°C line (Cyan)
+            gCtx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
+            gCtx.beginPath();
+            gCtx.moveTo(padL, tempToY(0));
+            gCtx.lineTo(w - padR, tempToY(0));
+            gCtx.stroke();
+
+            // 100°C line (Red)
+            gCtx.strokeStyle = 'rgba(239, 68, 68, 0.3)';
+            gCtx.beginPath();
+            gCtx.moveTo(padL, tempToY(100));
+            gCtx.lineTo(w - padR, tempToY(100));
+            gCtx.stroke();
+
+            gCtx.setLineDash([]);
+
+            // Defined heating curve path points: (Q, T)
+            const q1 = 200;                  // Heat to reach 0°C (Ice solid)
+            const q2 = q1 + LATENT_FUSION;   // Heat during melting (0°C latent)
+            const q3 = q2 + 100 * CAPACITY_WATER; // Heat to reach 100°C (Water liquid)
+            const q4 = q3 + LATENT_VAPOR;    // Heat during boiling (100°C latent)
+            const q5 = MAX_HEAT_TOTAL;       // Steam superheating
+
+            // Draw Theoretical Heating Curve
+            gCtx.lineWidth = 3;
+            gCtx.beginPath();
+
+            // Segment 1: Solid Ice heating (-20°C to 0°C)
+            gCtx.strokeStyle = '#38bdf8';
+            gCtx.moveTo(heatToX(0), tempToY(-20));
+            gCtx.lineTo(heatToX(q1), tempToY(0));
+            gCtx.stroke();
+
+            // Segment 2: Melting Latent Plateau (0°C)
+            gCtx.beginPath();
+            gCtx.strokeStyle = '#fbbf24';
+            gCtx.moveTo(heatToX(q1), tempToY(0));
+            gCtx.lineTo(heatToX(q2), tempToY(0));
+            gCtx.stroke();
+
+            // Segment 3: Liquid Water heating (0°C to 100°C)
+            gCtx.beginPath();
+            gCtx.strokeStyle = '#3b82f6';
+            gCtx.moveTo(heatToX(q2), tempToY(0));
+            gCtx.lineTo(heatToX(q3), tempToY(100));
+            gCtx.stroke();
+
+            // Segment 4: Boiling Latent Plateau (100°C)
+            gCtx.beginPath();
+            gCtx.strokeStyle = '#f43f5e';
+            gCtx.moveTo(heatToX(q3), tempToY(100));
+            gCtx.lineTo(heatToX(q4), tempToY(100));
+            gCtx.stroke();
+
+            // Segment 5: Steam Heating (>100°C)
+            gCtx.beginPath();
+            gCtx.strokeStyle = '#ef4444';
+            gCtx.moveTo(heatToX(q4), tempToY(100));
+            gCtx.lineTo(heatToX(q5), tempToY(130));
+            gCtx.stroke();
+
+            // Draw Current State Tracker Dot
+            const curX = heatToX(state.heatAdded);
+            const curY = tempToY(state.temperature);
+
+            // Pulsing tracer dot
+            gCtx.beginPath();
+            gCtx.arc(curX, curY, 6, 0, Math.PI * 2);
+            gCtx.fillStyle = '#ffffff';
+            gCtx.shadowColor = '#06b6d4';
+            gCtx.shadowBlur = 12;
+            gCtx.fill();
+            gCtx.shadowBlur = 0;
+            gCtx.lineWidth = 2;
+            gCtx.strokeStyle = '#0891b2';
+            gCtx.stroke();
+
+            // Labels on key plateaus
+            gCtx.fillStyle = '#fbbf24';
+            gCtx.font = '9px Inter';
+            gCtx.fillText('Peleburan Es (0°C)', heatToX(q1) + 10, tempToY(0) - 8);
+
+            gCtx.fillStyle = '#f43f5e';
+            gCtx.fillText('Pendidihan / Penguapan (100°C)', heatToX(q3) + 10, tempToY(100) - 8);
+        }
+
+        /**
+         * THERMODYNAMIC ENGINE UPDATE LOGIC
+         */
+        function updateThermodynamics() {
+            if (!state.isPlaying || state.heatPower === 0) return;
+
+            const deltaQ = state.heatPower * 2.2;
+            state.heatAdded = Math.max(0, Math.min(MAX_HEAT_TOTAL, state.heatAdded + deltaQ));
+
+            // Defined heat thresholds
+            const q1 = 200;                             // 0°C reached
+            const q2 = q1 + LATENT_FUSION;              // Melting complete
+            const q3 = q2 + 100 * CAPACITY_WATER;       // 100°C reached
+            const q4 = q3 + LATENT_VAPOR;               // Boiling complete
+
+            // Determine temperature and phase based on cumulative heat Q
+            if (state.heatAdded < q1) {
+                // Phase 1: Solid Ice heating (-20°C -> 0°C)
+                state.phase = 'solid';
+                state.temperature = -20 + (state.heatAdded / q1) * 20;
+                state.latentProgress = 0;
+            }
+            else if (state.heatAdded >= q1 && state.heatAdded < q2) {
+                // Phase 2: Ice Melting (0°C constant) - PELEBURAN ES
+                state.phase = 'melting';
+                state.temperature = 0; // Temperature remains strictly at 0°C during phase transition!
+                state.latentProgress = (state.heatAdded - q1) / LATENT_FUSION;
+            }
+            else if (state.heatAdded >= q2 && state.heatAdded < q3) {
+                // Phase 3: Liquid Water heating (0°C -> 100°C)
+                state.phase = 'liquid';
+                state.temperature = ((state.heatAdded - q2) / (q3 - q2)) * 100;
+                state.latentProgress = 0;
+            }
+            else if (state.heatAdded >= q3 && state.heatAdded < q4) {
+                // Phase 4: Water Boiling (100°C constant) - PENDIDIHAN AIR
+                state.phase = 'boiling';
+                state.temperature = 100; // Temperature remains strictly at 100°C during vaporization!
+                state.latentProgress = (state.heatAdded - q3) / LATENT_VAPOR;
+            }
+            else {
+                // Phase 5: Steam Gas heating (>100°C)
+                state.phase = 'gas';
+                state.temperature = 100 + ((state.heatAdded - q4) / (MAX_HEAT_TOTAL - q4)) * 30;
+                state.latentProgress = 1;
+            }
+
+            // Sync Slider position visually
+            document.getElementById('tempSlider').value = state.temperature;
+            document.getElementById('sliderTempDisplay').textContent = `${Math.round(state.temperature)}°C`;
+        }
+
+        /**
+         * UI & EDUCATIONAL TEXT UPDATE
+         */
+        function updateUI() {
+            // Update HUD elements
+            const tempRounded = Math.round(state.temperature);
+            document.getElementById('tempHUDText').textContent = `${tempRounded}°C`;
+            document.getElementById('heatEnergyBadge').textContent = `${(state.heatAdded * 0.1).toFixed(1)} kJ`;
+
+            // Thermometer fluid height (map -30°C to 130°C to 0% - 100%)
+            const fillPct = Math.min(100, Math.max(5, ((state.temperature + 30) / 160) * 100));
+            document.getElementById('thermoLiquid').style.height = `${fillPct}%`;
+
+            // Flame vis
+            const flame = document.getElementById('flameContainer');
+            flame.style.opacity = state.heatPower > 0 ? (state.heatPower / 3) : 0;
+
+            // Phase Badge & Overlay Text
+            const phaseBadge = document.getElementById('phaseBadge');
+            const stateOverlay = document.getElementById('stateOverlay');
+            const stateText = document.getElementById('stateText');
+            const stateIcon = document.getElementById('stateIcon');
+            const explanationBox = document.getElementById('explanationBox');
+            const kineticEnergyVal = document.getElementById('kineticEnergyVal');
+            const bondStatusVal = document.getElementById('bondStatusVal');
+
+            if (state.phase === 'solid') {
+                phaseBadge.textContent = 'Padat (Es)';
+                phaseBadge.className = 'font-semibold text-cyan-300';
+                stateText.textContent = `Es Padat (${tempRounded}°C)`;
+                stateIcon.className = 'fa-solid fa-snowflake text-cyan-400';
+
+                explanationBox.innerHTML = `
+                    <p><strong class="text-cyan-300">Fasa Es Padat:</strong> Molekul H₂O terikat kuat dalam kisi kristal heksagonal oleh ikatan hidrogen kaku.</p>
+                    <p>Kalor yang ditambahkan meningkatkan energi kinetik getaran molekul, menyebabkan suhu es naik dari sub-nol menuju 0°C.</p>
+                `;
+                kineticEnergyVal.textContent = 'Getaran Kisi Rendah';
+                bondStatusVal.textContent = 'Kristal Heksagonal Kaku';
+            }
+            else if (state.phase === 'melting') {
+                phaseBadge.textContent = 'Transisi Peleburan (Titik Lebur)';
+                phaseBadge.className = 'font-semibold text-amber-300 animate-pulse';
+                stateText.textContent = `Peleburan Es pada 0°C (${Math.round(state.latentProgress * 100)}%)`;
+                stateIcon.className = 'fa-solid fa-water-ladders text-amber-400';
+
+                explanationBox.innerHTML = `
+                    <p><strong class="text-amber-300">Titik Lebur (0°C):</strong> Es sedang meleleh menjadi air cair.</p>
+                    <p class="bg-amber-950/40 p-2 rounded border border-amber-800/50">
+                        <i class="fa-solid fa-circle-info text-amber-400 mr-1"></i>
+                        <strong>Suhu Tetap 0°C!</strong> Kalor lebur ($L_f = 334\\text{ J/g}$) tidak menaikkan suhu, melainkan digunakan sepenuhnya untuk memutuskan ikatan hidrogen kaku pada kisi kristal es.
+                    </p>
+                `;
+                kineticEnergyVal.textContent = 'Konstan (Suhu Tetap)';
+                bondStatusVal.textContent = `Pemutusan Kisi (${Math.round(state.latentProgress * 100)}%)`;
+            }
+            else if (state.phase === 'liquid') {
+                phaseBadge.textContent = 'Cair (Air)';
+                phaseBadge.className = 'font-semibold text-blue-400';
+                stateText.textContent = `Air Cair (${tempRounded}°C)`;
+                stateIcon.className = 'fa-solid fa-droplet text-blue-400';
+
+                explanationBox.innerHTML = `
+                    <p><strong class="text-blue-400">Fasa Air Cair:</strong> Ikatan hidrogen terus terbentuk dan putus secara dinamis. Molekul dapat meluncur bebas satu sama lain.</p>
+                    <p>Penambahan kalor meningkatkan kecepatan gerak translasi molekul, menaikkan suhu air dari 0°C hingga mencapai titik didih 100°C.</p>
+                `;
+                kineticEnergyVal.textContent = 'Translasi & Rotasi Sedang';
+                bondStatusVal.textContent = 'Dinamis (Putus-Sambung)';
+            }
+            else if (state.phase === 'boiling') {
+                phaseBadge.textContent = 'Transisi Pendidihan (Titik Didih)';
+                phaseBadge.className = 'font-semibold text-rose-400 animate-pulse';
+                stateText.textContent = `Pendidihan / Penguapan 100°C (${Math.round(state.latentProgress * 100)}%)`;
+                stateIcon.className = 'fa-solid fa-temperature-arrow-up text-rose-400';
+
+                explanationBox.innerHTML = `
+                    <p><strong class="text-rose-400">Titik Didih (100°C):</strong> Air sedang mendidih dan menguap menjadi gas.</p>
+                    <p class="bg-rose-950/40 p-2 rounded border border-rose-800/50">
+                        <i class="fa-solid fa-fire-flame-curved text-rose-400 mr-1"></i>
+                        <strong>Suhu Tetap 100°C!</strong> Kalor penguapan ($L_v = 2260\\text{ J/g}$) diserap untuk mengatasi tekanan atmosfer dan memisahkan molekul air sepenuhnya menjadi fase gas.
+                    </p>
+                `;
+                kineticEnergyVal.textContent = 'Sangat Tinggi (Konstan)';
+                bondStatusVal.textContent = `Pelepasan Molekul (${Math.round(state.latentProgress * 100)}%)`;
+            }
+            else if (state.phase === 'gas') {
+                phaseBadge.textContent = 'Gas (Uap Air)';
+                phaseBadge.className = 'font-semibold text-red-500';
+                stateText.textContent = `Uap Panas (${tempRounded}°C)`;
+                stateIcon.className = 'fa-solid fa-wind text-red-400';
+
+                explanationBox.innerHTML = `
+                    <p><strong class="text-red-400">Fasa Gas / Uap Air:</strong> Molekul H₂O terpisah jauh dan bergerak sangat cepat secara acak.</p>
+                    <p>Ikatan antarmolekul telah terputus sepenuhnya. Kalor tambahan menaikkan energi kinetik gas secara drastis.</p>
+                `;
+                kineticEnergyVal.textContent = 'Ekstrem (Bebas Acak)';
+                bondStatusVal.textContent = 'Terputus Sepenuhnya';
+            }
+        }
+
+        /**
+         * RESIZE & EVENT HANDLING
+         */
+        function handleResize() {
+            // Particle canvas sizing
+            const pRect = pCanvas.parentElement.getBoundingClientRect();
+            pCanvas.width = pRect.width;
+            pCanvas.height = pRect.height;
+
+            // Graph canvas sizing
+            const gRect = gCanvas.parentElement.getBoundingClientRect();
+            gCanvas.width = gRect.width;
+            gCanvas.height = gRect.height;
+
+            initParticles();
+        }
+
+        window.addEventListener('resize', handleResize);
+
+        // Heat Power Buttons
+        document.querySelectorAll('.heat-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.heat-btn').forEach(b => {
+                    b.classList.remove('active', 'bg-cyan-600', 'text-white', 'shadow-md', 'shadow-cyan-600/30');
+                    b.classList.add('bg-slate-800', 'text-slate-300');
+                });
+
+                const target = e.currentTarget;
+                target.classList.remove('bg-slate-800', 'text-slate-300');
+                target.classList.add('active', 'bg-cyan-600', 'text-white', 'shadow-md', 'shadow-cyan-600/30');
+
+                state.heatPower = parseFloat(target.getAttribute('data-heat'));
+
+                const powerText = document.getElementById('heatPowerText');
+                if (state.heatPower === 0) powerText.textContent = 'Mati';
+                else if (state.heatPower < 0) powerText.textContent = 'Pendinginan';
+                else if (state.heatPower === 1) powerText.textContent = 'Sedang (Rendah)';
+                else powerText.textContent = 'Tinggi (Cepat)';
+            });
+        });
+
+        // Play / Pause Toggle
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        playPauseBtn.addEventListener('click', () => {
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying) {
+                playPauseBtn.innerHTML = `<i class="fa-solid fa-pause"></i><span>Jeda</span>`;
+                playPauseBtn.className = "flex-1 py-2 px-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20";
+            } else {
+                playPauseBtn.innerHTML = `<i class="fa-solid fa-play"></i><span>Lanjut</span>`;
+                playPauseBtn.className = "flex-1 py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20";
+            }
+        });
+
+        // Reset Button
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            state.temperature = -20;
+            state.heatAdded = 0;
+            state.latentProgress = 0;
+            state.phase = 'solid';
+            document.getElementById('tempSlider').value = -20;
+            initParticles();
+        });
+
+        // Toggle Hydrogen Bonds Button
+        document.getElementById('toggleBondsBtn').addEventListener('click', () => {
+            state.showBonds = !state.showBonds;
+            document.getElementById('bondBtnText').textContent = `Ikatan Hidrogen: ${state.showBonds ? 'ON' : 'OFF'}`;
+        });
+
+        // Manual Temperature Slider Input
+        const tempSlider = document.getElementById('tempSlider');
+        tempSlider.addEventListener('input', (e) => {
+            const targetTemp = parseFloat(e.target.value);
+            state.temperature = targetTemp;
+            document.getElementById('sliderTempDisplay').textContent = `${Math.round(targetTemp)}°C`;
+
+            // Calculate corresponding Q for slider adjustment
+            const q1 = 200;
+            const q2 = q1 + LATENT_FUSION;
+            const q3 = q2 + 100 * CAPACITY_WATER;
+            const q4 = q3 + LATENT_VAPOR;
+
+            if (targetTemp < 0) {
+                state.heatAdded = ((targetTemp + 20) / 20) * q1;
+                state.phase = 'solid';
+            } else if (targetTemp === 0) {
+                state.phase = 'melting';
+                if (state.heatAdded < q1 || state.heatAdded > q2) state.heatAdded = q1 + LATENT_FUSION * 0.5;
+            } else if (targetTemp > 0 && targetTemp < 100) {
+                state.heatAdded = q2 + (targetTemp / 100) * (q3 - q2);
+                state.phase = 'liquid';
+            } else if (targetTemp === 100) {
+                state.phase = 'boiling';
+                if (state.heatAdded < q3 || state.heatAdded > q4) state.heatAdded = q3 + LATENT_VAPOR * 0.5;
+            } else {
+                state.heatAdded = q4 + ((targetTemp - 100) / 30) * (MAX_HEAT_TOTAL - q4);
+                state.phase = 'gas';
+            }
+        });
+
+        /**
+         * MAIN ANIMATION LOOP
+         */
+        function animate() {
+            // Clear particle canvas
+            pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+
+            // Update thermodynamic state
+            updateThermodynamics();
+
+            // Draw beaker frame
+            drawBeaker(pCtx, pCanvas.width, pCanvas.height);
+
+            // Draw hydrogen bonds
+            drawHydrogenBonds(pCtx);
+
+            // Update and draw molecular particles
+            const bounds = { width: pCanvas.width, height: pCanvas.height };
+            particles.forEach(p => {
+                p.update(state.temperature, state.phase, bounds);
+                p.draw(pCtx, state.phase, state.showBonds);
+            });
+
+            // Draw Heating Curve Graph
+            drawHeatingGraph();
+
+            // Update UI elements
+            updateUI();
+
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize simulation on window load
+        window.onload = function() {
+            handleResize();
+            animate();
+        };
+    </script>
+</body>
+</html>
